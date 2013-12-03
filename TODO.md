@@ -34,5 +34,7 @@ Some are already registered as issues on Github, others are more in the "would l
  * Importer isn't importing them
  * They are not therefore showing as having their links rewritten
 * Add an onAfterImport() (see external-content module) to StaticSiteImporter and run StaticSiteRewriteLinksTask from it, based on CMS UI user-selection (default is 'yes')
-* Add logic to the crawl that allows images used only as CSS background images in a legacy site, to be crawled
 * If using the "Duplicate" URL Processing strategy. The buildFileProperties() method isn't actually invoked
+* Suspect content originating from Windows based setups, may come through with \r\n newlines after import.
+ * Add logic to StaticSitePageTransformer that ensures all page-content is run through a simple newline fixer.
+ * Add unit-tests for this functionality
