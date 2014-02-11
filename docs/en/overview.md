@@ -1,4 +1,4 @@
-#Migration
+#Overview
 
  * Once the module is installed (See README.md), log into the CMS. You will see a new section called 'External Content', open it.
 
@@ -162,3 +162,18 @@ Note: you need to manually create the log file and make sure the webservice can 
 	#> touch /var/tmp/rewrite_links.log && chmod 766 /var/tmp/rewrite_links.log
 
 __Note:__ The built-in CMS report BadImportsReport depends on this log file and uses its content for the report, see: staticsiteconntector/code/reports/BadImportsReport.php
+
+## CONFIGURATION
+
+Example YAML configuration for staticsiteconnector, append to: mysite/_config/_config.yml
+
+StaticSiteContentExtractor:
+  # Configure the staticsiteconnector module log file
+  log_file: '/var/tmp/import.log'
+  # Configure curl to talk to 3rd party services and URLs, outside of CWP platform
+  curl_opts_proxy:
+    hostname: 'gateway.cwp.govt.nz'
+    port: 8888
+StaticSiteRewriteLinksTask:
+  # Configure the StaticSiteRewriteLinksTask log file
+  log_file: '/var/tmp/rewrite_links.log'
