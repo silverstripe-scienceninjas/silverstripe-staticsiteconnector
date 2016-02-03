@@ -167,6 +167,7 @@ __Note:__ The built-in CMS report BadImportsReport depends on this log file and 
 
 Example YAML configuration for staticsiteconnector, append to: mysite/_config/_config.yml
 
+```yaml
 StaticSiteContentExtractor:
   # Configure the staticsiteconnector module log file
   log_file: '/var/tmp/import.log'
@@ -177,3 +178,4 @@ StaticSiteContentExtractor:
 StaticSiteRewriteLinksTask:
   # Configure the StaticSiteRewriteLinksTask log file
   log_file: '/var/tmp/rewrite_links.log'
+```
