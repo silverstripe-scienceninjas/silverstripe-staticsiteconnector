@@ -1,6 +1,9 @@
 <?php
-/*
+/**
  * Basic class for utility methods unsuited to any other class
+ * 
+ * @package staticsiteconnector
+ * @author Russell Michell <russell@silverstripe.com>
  */
 class StaticSiteUtils {
 
@@ -19,18 +22,18 @@ class StaticSiteUtils {
 		}
 
 		if(is_writable($logFile) || !file_exists($logFile) && is_writable(dirname($logFile))) {
-			$message = $message.($filename?$filename:'').($mime?' ('.$mime.')':'');
+			$message = $message.($filename?' '.$filename:'').($mime?' ('.$mime.')':'');
 			error_log($message. PHP_EOL, 3, $logFile);
 		}
 	}
 
 	/*
-	 * Becuase we can have several imported "sub-trees" in the CMS' SiteTree st once and if we run the StaticSiteLinkRewrite task, it will clumsily look for _all_ content
-	 * with a non-NULL StaticSiteURL.
+	 * Becuase we can have several imported "sub-trees" in the CMS' SiteTree at once and if we run the 
+	 * StaticSiteLinkRewrite task, it will clumsily look for _all_ content with a non-NULL StaticSiteURL.
 	 *
-	 * To prevent this, reset the StaticSIteURL of _all_ matches _before_ we ever run the link-rewrite task.
+	 * To prevent this, we can reset the StaticSIteURL of _all_ matches _before_ we ever run the link-rewrite task.
 	 *
-	 * Resets the value of `$SStype.StaticSiteURL` to NULL before import. to ensure it's unique to the current import.
+	 * Resets the value of `$SStype.StaticSiteURL` to NULL before import, to ensure it's unique to the current import.
 	 * If this isn't done, it isn't clear to the RewriteLinks BuildTask, which tree of imported content to link-to, when multiple imports have been made.
 	 *
 	 * @param string $url

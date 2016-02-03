@@ -15,10 +15,10 @@ class StaticSiteContentItem extends ExternalContentItem {
 	);
 
 	/**
- 	 * Default Mime Type, either 'sitetree', 'file' or false to disable the default
+ 	 * Default Content type, either 'sitetree', 'file' or false to disable the default
  	 * @var mixed (string | boolean)
  	 */
-	private $default_mimetype = 'sitetree';
+	private $default_content_type = 'sitetree';
 
 	/**
 	 * Set this by using the yml config system
@@ -42,11 +42,14 @@ class StaticSiteContentItem extends ExternalContentItem {
 		$processedURL = $this->source->urlList()->processedURL($url);
 		$parentURL = $this->source->urlList()->parentProcessedURL($processedURL);
 		$subURL = substr($processedURL['url'], strlen($parentURL['url']));
-		if($subURL != "/") $subURL = preg_replace('#(^/)|(/$)#','',$subURL);
+		if($subURL != "/") {
+			$subURL = trim($subURL, '/');
+		}
 
+		// Just default values
 		$this->Name = $subURL;
 		$this->Title = $this->Name;
-		$this->AbsoluteURL = preg_replace('#/$#','', $this->source->BaseUrl) . $this->externalId;
+		$this->AbsoluteURL = rtrim($this->source->BaseUrl, '/') . $this->externalId;
 		$this->ProcessedURL = $processedURL['url'];
 		$this->ProcessedMIME = $processedURL['mime'];
 	}
@@ -76,7 +79,9 @@ class StaticSiteContentItem extends ExternalContentItem {
 	 * @return number
 	 */
 	public function numChildren() {
-		if(!$this->source->urlList()->hasCrawled()) return 0;
+		if(!$this->source->urlList()->hasCrawled()) {
+			return 0;
+		}
 
 		return sizeof($this->source->urlList()->getChildren($this->externalId));
 	}
@@ -96,8 +101,8 @@ class StaticSiteContentItem extends ExternalContentItem {
 			return "sitetree";
 		}
 		// Log everything that doesn't fit:
-		singleton('StaticSiteUtils')->log('Schema not configured for URL & Mime: '. $this->ProcessedMIME, $this->AbsoluteURL, $this->ProcessedMIME);
-		return $this->default_mimetype;
+		singleton('StaticSiteUtils')->log('Schema not configured for Mime & URL: '. $this->ProcessedMIME, $this->AbsoluteURL, $this->ProcessedMIME);
+		return $this->default_content_type;
 	}
 
 	/*
@@ -147,7 +152,7 @@ class StaticSiteContentItem extends ExternalContentItem {
 	}
 
 	/*
-	 * Performs some checks on $item. If it is the wrong type, returns false
+	 * Performs some checks on $item. If it is of the wrong type, returns false
 	 *
 	 * @param string $type e.g. 'sitetree'
 	 * @return void

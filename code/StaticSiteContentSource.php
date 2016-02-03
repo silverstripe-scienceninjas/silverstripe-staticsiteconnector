@@ -85,6 +85,7 @@ class StaticSiteContentSource extends ExternalContentSource {
 
 		$fields->removeFieldFromTab("Root", "Pages");
 		$fields->removeFieldFromTab("Root", "Files");
+		$fields->removeFieldFromTab("Root", "ShowContentInMenu");
 
 		// Processing Option
 		$processingOptions = array("" => "No pre-processing");
@@ -172,7 +173,9 @@ class StaticSiteContentSource extends ExternalContentSource {
 	}
 
 	/**
-	 *
+	 * If the site has been crawled and then subsequently the URLProcessor was changed, we need to ensure
+	 * URLs are re-processed using the newly selected URL Preprocessor
+	 * 
 	 * @return void
 	 */
 	public function onAfterWrite() {
@@ -231,7 +234,7 @@ class StaticSiteContentSource extends ExternalContentSource {
 	 *
 	 * @param string $absoluteURL
 	 * @param string $mimeType (Optional)
-	 * @return mixed $schema or boolean false if no schema matches are found
+	 * @return mixed \StaticSiteContentSource_ImportSchema $schema or boolean false if no schema matches are found
 	 */
 	public function getSchemaForURL($absoluteURL, $mimeType = null) {
 		$mimeType = StaticSiteMimeProcessor::cleanse($mimeType);
@@ -266,9 +269,12 @@ class StaticSiteContentSource extends ExternalContentSource {
 		if(!strlen($appliesTo)) {
 			$appliesTo = $schema::$default_applies_to;
 		}
-		// backslash the delimiters for the reg exp pattern
+		
+		// Use (escaped) pipes for delimeters as pipes are unlikely to appear in legitimate URLs
 		$appliesTo = str_replace('|', '\|', $appliesTo);
-		if(preg_match("|^$appliesTo|", $url) == 1) {
+		$urlToTest = str_replace(rtrim($this->BaseUrl, '/'), '', $url);
+	
+		if(preg_match("|^$appliesTo|i", $urlToTest)) {				
 			$this->utils->log(' - ' . __FUNCTION__ . ' matched: ' . $appliesTo . ', Url: '. $url);
 			return true;
 		}
@@ -321,7 +327,9 @@ class StaticSiteContentSource extends ExternalContentSource {
 	 * @return ArrayList A list containing the root node
 	 */
 	public function stageChildren($showAll = false) {
-		if(!$this->urlList()->hasCrawled()) return new ArrayList;
+		if(!$this->urlList()->hasCrawled()) {
+			return new ArrayList;
+		}
 
 		return new ArrayList(array(
 			$this->getObject("/")
@@ -451,7 +459,7 @@ class StaticSiteContentSource_ImportSchema extends DataObject {
 		$fields->addFieldToTab('Root.Main', new DropdownField('DataType', 'DataType', $dataObjects));
 		$mimes = new TextareaField('MimeTypes', 'Mime-types');
 		$mimes->setRows(3);
-		$mimes->setDescription('Be sure to pick a Mime-type that the DataType supports. Examples of valid entries are e.g text/html, image/png or image/jpeg separated by a newline.');
+		$mimes->setDescription('Be sure to pick a Mime-type that the DataType supports. Examples of valid entries are e.g text/html, image/png or image/jpeg, separated by a newline.');
 		$fields->addFieldToTab('Root.Main', $mimes);
 
 		$importRules = $fields->dataFieldByName('ImportRules');

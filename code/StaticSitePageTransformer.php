@@ -1,8 +1,11 @@
 <?php
-/*
- * URL transformer specific to SilverStripe's `SiteTree` object for use within the import functionality.
+/**
+ * URL transformer specific to SilverStripe's `SiteTree` class for use within the import functionality.
  *
+ * @package staticsiteconnector
  * @see {@link StaticSiteFileTransformer}
+ * @author Sam Minee <sam@silverstripe.com>
+ * @author Science Ninjas <scienceninjas@silverstripe.com>
  */
 class StaticSitePageTransformer implements ExternalContentTransformer {
 
@@ -21,7 +24,8 @@ class StaticSitePageTransformer implements ExternalContentTransformer {
 	}
 
 	/**
-	 *
+	 * Generic function called by \ExternalContentImporter
+	 * 
 	 * @param type $item
 	 * @param type $parentObject
 	 * @param type $duplicateStrategy
@@ -62,7 +66,12 @@ class StaticSitePageTransformer implements ExternalContentTransformer {
 			$urlSegment = str_replace('/','', $item->Name);
 			$urlSegment = preg_replace('/\.[^.]*$/','',$urlSegment);
 			$urlSegment = str_replace('.','-', $item->Name);
-			$contentFields['URLSegment'] = array('content' => $urlSegment);
+			$contentFields['URLSegment'] = array('content' => $urlSegment);		
+		}
+		
+		// Default value for Content (Useful for during unit-testing)
+		if(empty($contentFields['Content'])) {
+			$contentFields['Content'] = array('content' => 'dummy');
 		}
 
 		$schema = $source->getSchemaForURL($item->AbsoluteURL,$item->ProcessedMIME);
@@ -78,11 +87,15 @@ class StaticSitePageTransformer implements ExternalContentTransformer {
 			throw new Exception('Pagetype for migration schema is empty!');
 		}
 
-		// Create a page with the appropriate fields
-		$page = new $pageType(array());
-		$existingPage = $pageType::get()->filter('StaticSiteURL',$item->getExternalId())->first();
+		// Check if the page is already imported and decide what to do depending on the CMS-selected strategy (overwrite/skip etc)
+		$existingPage = $pageType::get()->filter('StaticSiteURL', $item->getExternalId())->first();
 
-		if($existingPage && $duplicateStrategy === 'Overwrite') {
+		/*
+		 * @todo to "Overwrite" strategy isn't working. To "overwrite" something is to:
+		 * - Delete it
+		 * - Write a new one
+		 */		
+		if($existingPage && $duplicateStrategy === ExternalContentTransformer::DS_OVERWRITE) {
 			if(get_class($existingPage) !== $pageType) {
 				$existingPage->ClassName = $pageType;
 				$existingPage->write();
@@ -90,6 +103,17 @@ class StaticSitePageTransformer implements ExternalContentTransformer {
 			if($existingPage) {
 				$page = $existingPage;
 			}
+			$copy = $page;
+			$page->delete();
+			$copy->write();
+			$page = $copy;
+		}
+		else if($existingPage && $duplicateStrategy === ExternalContentTransformer::DS_SKIP) {
+			return false;
+		}
+		else {
+			// This deals to the "Duplicate" strategy, as well as creating new, non-existing objects
+			$page = new $pageType(array());
 		}
 
 		$page->StaticSiteContentSourceID = $source->ID;
@@ -97,6 +121,10 @@ class StaticSitePageTransformer implements ExternalContentTransformer {
 		$page->ParentID = $parentObject ? $parentObject->ID : 0;
 
 		foreach($contentFields as $k => $v) {
+			// Don't write anything new, if we have nothing new to write (useful during unit-testing)
+			if(!$v['content']) {
+				continue;
+			}			
 			$page->$k = $v['content'];
 		}
 

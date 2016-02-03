@@ -1,12 +1,17 @@
 <?php
-
-require_once('../vendor/cuab/phpcrawl/libs/PHPCrawler.class.php');
-
 /**
  * Represents a set of URLs parsed from a site.
  *
  * Makes use of PHPCrawl to prepare a list of URLs on the site
+ * 
+ * @package staticsiteconnector
+ * @author Sam Minee <sam@silverstripe.com>
+ * @author Science Ninjas <scienceninjas@silverstripe.com> 
  */
+
+// We need PHPCrawl
+require_once(BASE_PATH.'/vendor/cuab/phpcrawl/libs/PHPCrawler.class.php');
+
 class StaticSiteUrlList {
 
 	/**
@@ -71,11 +76,18 @@ class StaticSiteUrlList {
 	 * @return void
 	 */
 	public function __construct(StaticSiteContentSource $source, $cacheDir) {
+		if(SapphireTest::is_running_test()) {
+			$cacheDir = BASE_PATH . '/staticsiteconnector/tests/static-site-1';
+		}
 		// baseURL must not have a trailing slash
 		$baseURL = $source->BaseUrl;
-		if(substr($baseURL,-1) == "/") $baseURL = substr($baseURL,0,-1);
+		if(substr($baseURL,-1) == "/") {
+			$baseURL = substr($baseURL,0,-1);
+		}
 		// cacheDir must have a trailing slash
-		if(substr($cacheDir,-1) != "/") $cacheDir .= "/";
+		if(substr($cacheDir,-1) != "/") {
+			$cacheDir .= "/";
+		}
 
 		$this->baseURL = $baseURL;
 		$this->cacheDir = $cacheDir;
@@ -85,12 +97,11 @@ class StaticSiteUrlList {
 	/**
 	 * Set a URL processor for this URL List.
 	 *
-	 * URL processors process the URLs before the site heirarchy and inferred meta-data are generated.
-	 * These can be used to tranform URLs from CMSes that don't provide a natural heirarchy into something
+	 * URL processors process the URLs before the site hierarchy and any inferred metadata are generated.
+	 * These can be used to tranform URLs from CMS's that don't provide a natural hierarchy, into something
 	 * more useful.
 	 *
-	 * See {@link StaticSiteMOSSURLProcessor} for an example.
-	 *
+	 * @see {@link StaticSiteMOSSURLProcessor} for an example.
 	 * @param StaticSiteUrlProcessor $urlProcessor
 	 * @return void
 	 */
@@ -141,17 +152,18 @@ class StaticSiteUrlList {
 	}
 
 	/**
-	 *
 	 * Set whether the crawl should be triggered on demand.
+	 * 
 	 * @param boolean $autoCrawl
-	 * @retutn void
+	 * @return void
 	 */
 	public function setAutoCrawl($autoCrawl) {
 		$this->autoCrawl = $autoCrawl;
 	}
 
 	/**
-	 * Returns the status of the spidering: "Complete", "Partial", or "Not started"
+	 * Returns the status of the spidering: "Complete", "Partial", or "Not started".
+	 * 
 	 * @return string
 	 */
 	public function getSpiderStatus() {
@@ -164,15 +176,15 @@ class StaticSiteUrlList {
 		return "Not started";
 	}
 
-	/*
-	 * Raw URL+Mime data "accessor" used internally by logic outside of the class.
+	/**
+	 * Raw URL+Mime data accessor method, used internally by logic outside of the class.
 	 *
 	 * @return mixed string $urls | null if no cached URL/Mime data found
 	 */
 	public function getRawCacheData() {
 		if($this->urls) {
-			$urls = $this->urls;
 			// Don't rely on loadUrls() as it chokes on partially completed imports
+			$urls = $this->urls;
 		} 
 		else if(file_exists($this->cacheDir . 'urls')) {
 			$urls = unserialize(file_get_contents($this->cacheDir . 'urls'));
@@ -247,7 +259,8 @@ class StaticSiteUrlList {
 	}
 
 	/**
-	 * Load the URLs, either by crawling, or by fetching from cache
+	 * Load the URLs, either by crawling, or by fetching from cache.
+	 * 
 	 * @return void
 	 * @throws \LogicException
 	 */
@@ -269,7 +282,10 @@ class StaticSiteUrlList {
 	}
 
 	/**
-	 * Re-execute the URL processor on all the fetched URLs
+	 * Re-execute the URL processor on all the fetched URLs.
+	 * If the site has been crawled and then subsequently the URLProcessor was changed, we need to ensure
+	 * URLs are re-processed using the newly selected URL Preprocessor.
+	 * 
 	 * @return void
 	 */
 	public function reprocessUrls() {
@@ -352,7 +368,8 @@ class StaticSiteUrlList {
 	}
 
 	/**
-	 * Cache the current list of URLs to disk
+	 * Cache the current list of URLs to disk.
+	 * 
 	 * @return void
 	 */
 	public function saveURLs() {
@@ -360,28 +377,31 @@ class StaticSiteUrlList {
 	}
 
 	/**
-	 * Add a URL to this list, given the absolute URL
+	 * Add a URL to this list, given the absolute URL.
+	 * 
 	 * @param string $url The absolute URL
 	 * @param string $content_type The Mime-Type found at this URL e.g text/html or image/png
 	 * @throws \InvalidArgumentException
-	 * @return ??
+	 * @return void
 	 */
-	public function addAbsoluteURL($url,$content_type) {
-		$simpifiedURL = $this->simplifyURL($url);
-		$simpifiedBase = $this->simplifyURL($this->baseURL);
+	public function addAbsoluteURL($url, $content_type) {
+		$simplifiedURL = $this->simplifyURL($url);
+		$simplifiedBase = $this->simplifyURL($this->baseURL);
 
-		if(substr($simpifiedURL,0,strlen($simpifiedBase)) == $simpifiedBase) {
+		// Check we're adhering to the correct base URL
+		if(substr($simplifiedURL,0,strlen($simplifiedBase)) == $simplifiedBase) {
 			$relURL = substr($url, strlen($this->baseURL));
 		} 
 		else {
 			throw new InvalidArgumentException("URL $url is not from the site $this->baseURL");
 		}
 
-		return $this->addURL($relURL,$content_type);
+		$this->addURL($relURL, $content_type);
 	}
 
 	/**
-	 *
+	 * Appends a processed URL onto the URL cache.
+	 * 
 	 * @param string $url
 	 * @param string $contentType
 	 * @return void
@@ -406,10 +426,11 @@ class StaticSiteUrlList {
 	/**
 	 * Add an inferred URL to the list.
 	 *
-	 * Since the unprocessed URL isn't available, we use the processed URL in its place.  This should be used with
-	 * some caution.
+	 * Since the unprocessed URL isn't available, we use the processed URL in its place.
+	 * This should be used with some caution.
 	 *
-	 * @param array $inferredURLData Contains the processed URL and Mime-Type to add.
+	 * @param array $inferredURLData Contains the processed URL and Mime-Type to add
+	 * @return void
 	 */
 	public function addInferredURL($inferredURLData) {
 		if($this->urls === null) {
@@ -424,8 +445,9 @@ class StaticSiteUrlList {
 	}
 
 	/**
-	 * Return true if the given URL exists
-	 * @param  string $url The URL, either absolute, or relative starting with "/"
+	 * Return true if the given URL exists.
+	 * 
+	 * @param string $url The URL, either absolute, or relative starting with "/"
 	 * @return boolean Does the URL exist
 	 * @throws \InvalidArgumentException
 	 */
@@ -452,12 +474,13 @@ class StaticSiteUrlList {
 
 	/**
 	 * Simplify a URL.
-	 * Ignores https/http differences and "www." / non differences.
+	 * - Ignores https/http differences and "www." / non differences.
+	 * - We needn't run strtolower() to force lowercase URLs, SilverStripe does this for us.
 	 *
 	 * @param  string $url
 	 * @return string
 	 */
-	protected function simplifyURL($url) {
+	public function simplifyURL($url) {
 		return preg_replace('#^https?://(www\.)?#i','http://www.', $url);
 	}
 
@@ -473,7 +496,6 @@ class StaticSiteUrlList {
 		}
 
 		return in_array($processedURL, array_keys($this->urls['regular'])) || in_array($processedURL, array_keys($this->urls['inferred']));
-
 	}
 
 	/**
@@ -482,13 +504,14 @@ class StaticSiteUrlList {
 	 * Both input and output are processed URLs
 	 *
 	 * @param array $processedURLData URLData comprising a relative URL and Mime-Type
-	 * @return array $processedURLData [description]
+	 * @return string | array $processedURLData
 	 */
 	public function parentProcessedURL($processedURLData) {
 		$mime = self::$undefined_mime_type;
 		$processedURL = $processedURLData;
 		if(is_array($processedURLData)) {
-			$mime = $processedURLData['mime'];
+			// If $processedURLData['url'] is not HTML, it's unlikely its parent is anything useful (Prob just a directory)
+			$mime = singleton('StaticSiteMimeProcessor')->IsOfHtml($processedURLData['mime']) ? $processedURLData['mime'] : self::$undefined_mime_type;
 			$processedURL = $processedURLData['url'];
 		}
 
@@ -503,7 +526,7 @@ class StaticSiteUrlList {
 			return $default('');
 		}
 
-		// URL heirachy can be broken down by querystring or by URL
+		// URL hierarchy can be broken down by querystring or by URL
 		$breakpoint = max(strrpos($processedURL, '?'), strrpos($processedURL,'/'));
 
 		// Special case for children of the root
@@ -556,7 +579,6 @@ class StaticSiteUrlList {
 				$this->urls['regular'][$url] = $this->generateProcessedURL($urlData);
 			}
 			return $this->urls['regular'][$url];
-
 		} 
 		elseif(in_array($url, array_keys($this->urls['inferred']))) {
 			return $this->urls['inferred'][$url];
@@ -628,11 +650,46 @@ class StaticSiteUrlList {
 
 		return array_values($children);
 	}
-
+	
+	/*
+	 * Simple property getter. Used in unit-testing.
+	 * 
+	 * @param string $prop
+	 * @return mixed
+	 */
+	public function getProperty($prop) {
+		if($this->$prop) {
+			return $this->$prop;
+		}
+	}
+	
+	/*
+	 * Get the serialized cache content and return the unserialized string
+	 * 
+	 * @todo implement to replace x3 refs to unserialize(file_get_contents($this->cacheDir . 'urls'));
+	 * @return string
+	 */
+	public function getCacheFileContents() {
+		$cache = '';
+		$cacheFile = $this->cacheDir . 'urls';
+		if(file_exists($cacheFile)) {
+			$cache = unserialize(file_get_contents($cacheFile));
+		}
+		return $cache;
+	}	
 }
 
+/**
+ * Extends PHPCrawler essentially to override its handleDocumentInfo() method.
+ * 
+ * @see {@link \PHPCrawler}
+ */
 class StaticSiteCrawler extends PHPCrawler {
 
+	/**
+	 *
+	 * @var array
+	 */
 	protected $urlList;
 
 	/**
@@ -676,35 +733,44 @@ class StaticSiteCrawler extends PHPCrawler {
 	 *
 	 * @param \PHPCrawlerDocumentInfo $info
 	 * @return mixed null | void
+	 * @todo Can we make use of PHPCrawlerDocumentInfo#error_occured instead of manually checkng server codes??
+	 * @todo The comments below state that badly formatted URLs never make it to our caching logic. Wrong.
+	 *	- Pass the preg_replace() call for "fixing" $mossBracketRegex into StaticSiteUrlProcessor#postProcessUrl()
 	 */
 	public function handleDocumentInfo(PHPCrawlerDocumentInfo $info) {
 
 		/*
-		 * MOSS has many URLs with brackets, resembling this one below BRHU
-		 * These result in a 404 and don't filter down to our caching logic, e.g. http://www.transport.govt.nz/news/newsevents/budget2013/(/
-		 * We can "recover" these URLs by stripping and replacing with a trailing slash (So we eventually fetch all child nodes, if present)
+		 * MOSS has many URLs with brackets, e.g. http://www.stuff.co.nz/news/cat-stuck-up-tree/(/
+		 * These result in a 404 returned from curl requests for it, and won't filter down to our caching or URL Processor logic.
+		 * We can "recover" these URLs by stripping and replacing with a trailing slash. This allows us to be able to fetch all its child nodes, if present.
 		 */
 		$mossBracketRegex = "(\(|%28)+(.+)?$";
-		$isRecoverableUrl = preg_match("#$mossBracketRegex#i",$info->url);
-		// Ignore errors and redirects
+		$isRecoverableUrl = preg_match("#$mossBracketRegex#i", $info->url);
+		
+		// Ignore errors and redirects, they'll get logged for later analysis
 		$badStatusCode = (($info->http_status_code < 200) || ($info->http_status_code > 299));
 
+		/*
+		 * We're checking for a bad status code AND for "recoverability", becuase we might be able to recover the URL
+		 * when re-requesting it using Curl in the import stage, as long as we cache it correctly here
+		 */		
 		if($badStatusCode && !$isRecoverableUrl) {
-			$message = $info->url . " Skipped. We got a {$info->http_status_code}".PHP_EOL;
+			$message = $info->url . " Skipped. We got a {$info->http_status_code} and URL was irrecoverable".PHP_EOL;
 			$this->utils->log($message);
 			return;
 		}
 
 		// Continue building our cache
-		$info->url = preg_replace("#$mossBracketRegex#i",'',$info->url);
-		$this->urlList->addAbsoluteURL($info->url,$info->content_type);
+		$this->urlList->addAbsoluteURL($info->url, $info->content_type);
+		
+		// @todo is this needed?
 		if($this->verbose) {
 			echo "[+] ".$info->url.PHP_EOL;
 		}
 		$this->urlList->saveURLs();
 	}
 
-	/*
+	/**
 	 * @return void
 	 * @throws \InvalidArgumentException
 	 */
@@ -719,11 +785,10 @@ class StaticSiteCrawler extends PHPCrawler {
     		}
     	}
 
-		// Prevent URLs that matches the exclude patterns to be fetched
+		// Prevent URLs that match the exclude patterns from being fetched
 		if($excludePatterns = $this->urlList->getExcludePatterns()) {
 			foreach($excludePatterns as $pattern) {
 				$validRegExp = $this->addURLFilterRule('|'.str_replace('|', '\|', $pattern).'|');
-
 				if(!$validRegExp) {
 					throw new InvalidArgumentException('Exclude url pattern "'.$pattern.'" is not a valid regular expression.');
 				}

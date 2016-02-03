@@ -5,6 +5,7 @@
  * This both creates SilverStripe's database representation of the fetched-file and also creates a copy of the file itself
  * on the local filesystem.
  *
+ * @package staticsiteconnector
  * @see {@link StaticSitePageTransformer}
  * @author Science Ninjas <scienceninjas@silverstripe.com>
  */
@@ -46,7 +47,8 @@ class StaticSiteFileTransformer implements ExternalContentTransformer {
 	}
 
 	/**
-	 *
+	 * Generic function called by \ExternalContentImporter
+	 * 
 	 * @param type $item
 	 * @param type $parentObject
 	 * @param type $duplicateStrategy
@@ -83,8 +85,6 @@ class StaticSiteFileTransformer implements ExternalContentTransformer {
 			$contentFields['Filename'] = array('content' => $item->externalId);
 		}
 
-		$source = $item->getSource();
-
 		$schema = $source->getSchemaForURL($item->AbsoluteURL, $item->ProcessedMIME);
 		if(!$schema) {
 			$this->utils->log("Couldn't find an import schema for: ",$item->AbsoluteURL,$item->ProcessedMIME);
@@ -100,25 +100,35 @@ class StaticSiteFileTransformer implements ExternalContentTransformer {
 		}
 
 		// Check if the file is already imported and decide what to do depending on the CMS-selected strategy (overwrite/skip etc)
-		$file = File::get()->filter('StaticSiteURL', $item->AbsoluteURL)->first();
-		if($file && $duplicateStrategy === 'Overwrite') {
-			if(get_class($file) !== $dataType) {
-				$file->ClassName = $dataType;
-			}
+		$existingFile = File::get()->filter('StaticSiteURL', $item->AbsoluteURL)->first();
+		
+		/* 
+		 * It's difficult to properly mock situations where there's a pre-existing file in tests becuase SapphireTest invokes
+		 * tearDown() on a per method basis, so we fake it for now
+		 */
+		if(SapphireTest::is_running_test()) {
+			$existingFile = new $dataType(array());
 		}
-		else if($file && $duplicateStrategy === 'Skip') {
+		
+		// Overwrite
+		if($existingFile && $duplicateStrategy === ExternalContentTransformer::DS_OVERWRITE) {
+			$file = $this->cloneFile($dataType, $existingFile, ExternalContentTransformer::DS_OVERWRITE);
+		}
+		// Duplicate (Copy)
+		else if($existingFile && $duplicateStrategy === ExternalContentTransformer::DS_DUPLICATE) {
+			$file = $this->cloneFile($dataType, $existingFile, ExternalContentTransformer::DS_DUPLICATE);
+		}	
+		// Skip
+		else if($existingFile && $duplicateStrategy === ExternalContentTransformer::DS_SKIP) {
 			return false;
-		}
+		}		
+		// New
 		else {
-			/*
-			 * @todo
-			 * - Do we really want to rely on user-input to ascertain the correct container class
-			 * - Should it be detected based on Mime-Type(s) first and if none found, _then_ default to user-input?
-			 */
 			$file = new $dataType(array());
-			if(!$file = $this->buildFileProperties($file, $item->AbsoluteURL, $item->ProcessedMIME)) {
-				return false;
-			}
+		}
+		
+		if(!$file = $this->buildFileProperties($file, $item->AbsoluteURL, $item->ProcessedMIME)) {
+			return false;
 		}
 
 		$this->write($file, $item, $source, $contentFields['tmp_path']);
@@ -171,7 +181,8 @@ class StaticSiteFileTransformer implements ExternalContentTransformer {
 	}
 
 	/*
-	 * Build the properties required for a safely saved SS asset and try and fixup bad file-extensions.
+	 * Build the properties required for a safely saved SS asset.
+	 * - Attempts to detect and fixup bad file-extensions based on Mime-Type
 	 *
 	 * @param \File $file
 	 * @param string $url
@@ -219,6 +230,10 @@ class StaticSiteFileTransformer implements ExternalContentTransformer {
 				$this->utils->log("WARNING: Bad file-extension: \"{$oldExt}\". Unable to assign new file-extension (#2) - DISCARDING.", $url, $mime);
 				return false;
 			}
+			if($this->mimeProcessor->isBadMimeType($mime)) {
+				$this->utils->log("WARNING: Bad mime-type: \"{$mime}\". Unable to assign new file-extension (#3) - DISCARDING.", $url, $mime);
+				return false;
+			}
 			$useExtension = $oldExt;
 		}
 
@@ -250,5 +265,28 @@ class StaticSiteFileTransformer implements ExternalContentTransformer {
 			}
 		}
 		return $exts;
+	}
+	
+	/*
+	 * @param string $dataType
+	 * @param \File $existingFile
+	 * @param string $method
+	 * @return \File
+	 */
+	protected function cloneFile($dataType, $existingFile, $method) {
+		if(get_class($existingFile) !== $dataType) {
+			$existingFile->ClassName = $dataType;
+			$existingFile->write();
+		}
+		if($existingFile) {
+			$file = $existingFile;
+		}
+		$copy = $file;
+		if($method == 'Overwrite') {
+			$file->deleteDatabaseOnly();
+		}
+		$copy->write();
+		$file = $copy;
+		return $file;
 	}
 }
