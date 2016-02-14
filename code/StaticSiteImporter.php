@@ -20,4 +20,19 @@ class StaticSiteImporter extends ExternalContentImporter {
 	public function getExternalType($item) {
 		return $item->getType();
 	}
+
+	/*
+	 * Switch to Stage to ensure imported content is added as Draft
+	 */
+    public function runOnImportStart() {
+		Versioned::reading_stage('Stage');
+	}
+
+	/*
+	 * Switch back to Live stage after import
+	 */
+	public function runOnImportEnd() {
+		Versioned::reading_stage('Live');
+	}
+
 }
